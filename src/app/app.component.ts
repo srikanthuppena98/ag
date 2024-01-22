@@ -1,5 +1,6 @@
 import {Component} from '@angular/core';
-import {ColDef, ValueGetterParams, GridApi, GridReadyEvent} from 'ag-grid-community';
+import {ColDef, GridApi, GridReadyEvent} from 'ag-grid-community';
+import {rowData} from "./data";
 
 @Component({
   selector: 'app-root',
@@ -9,58 +10,12 @@ import {ColDef, ValueGetterParams, GridApi, GridReadyEvent} from 'ag-grid-commun
 export class AppComponent {
   themeClass = "ag-theme-quartz";
   private gridApi!: GridApi;
-  rowData: any[] = [
-    {
-      decimal: 123456.2345,
-      percentage: "0.7834",
-      alphaNumeric: "123 Cape Canaveral",
-      date: "2015-12-22T12:23:23",
-      time: "2015-12-22T18:33:23",
-      nullData: null
-    },
-    {
-      decimal: 876543.4234,
-      percentage: "0.2312",
-      alphaNumeric: "432 Kennedy Space Center",
-      date: "2007-09-20T12:23:23",
-      time: "2007-09-20T13:43:23",
-      nullData: null
-
-    },
-    {
-      decimal: 765432.1234,
-      percentage: "0.8789",
-      alphaNumeric: "987 Cape Canaveral",
-      date: "2020-04-24T12:23:23",
-      time: "2020-04-24T16:53:23",
-      nullData: null
-    },
-  ];
-
-  colDefs: ColDef<any>[] = [
-    {
-      field: "decimal",
-      filter: "agNumberColumnFilter",
-      valueFormatter: (params: any) => {
-        return parseFloat(params?.data.decimal).toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
-      },
-      valueGetter: (params: any) => {
-        return parseFloat(params.data.decimal.toFixed(2));
-      },
-    },
-    {
-      field: "percentage",
-      filter: "agNumberColumnFilter",
-      valueFormatter: (params) => params.value + "%",
-      valueGetter: (params: any) => {
-        return parseFloat((params.data.percentage * 100).toFixed(2));
-      },
-    },
-    { field: "alphaNumeric", filter: "agTextColumnFilter" },
-    {
+  private formatDateColDef(
+    headerName: string,
+    valueFormatter: (params: any) => string,
+    valueParser: (params: any) => Date
+  ) {
+    return {
       field: "date",
       filter: "agDateColumnFilter",
       filterParams: {
@@ -85,42 +40,99 @@ export class AppComponent {
               : 1;
         },
       },
-      valueFormatter: (params) => this.formatDateTime(params.value, this.dateOptions),
-      valueParser: (params) => {
-        const dateParts = params.newValue.split("-").map(Number);
-        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+      valueFormatter,
+      valueParser,
+      headerName,
+    };
+  }
+  colDefs: ColDef<any>[] = [
+    this.formatDateColDef(
+      "Formatted Date (without seconds)",
+      (params) => this.formatDate(params.value, false, true),
+      (params) => this.parseDate(params.newValue)
+    ),
+    this.formatDateColDef(
+      "Formatted Date (with seconds)",
+      (params) => this.formatDate(params.value, true),
+      (params) => this.parseDate(params.newValue)
+    ),
+    this.formatDateColDef(
+      "Formatted Date (dd/mm/yy)",
+      (params) => this.formatDateDDMMYY(params.value),
+      (params) => this.parseDateDDMMYY(params.newValue)
+    ),
+    {
+      field: "percentage",
+      filter: "agNumberColumnFilter",
+      valueFormatter: (params) => params.value + "%",
+      valueGetter: (params: any) => {
+        return parseFloat((params.data.percentage * 100).toFixed(2));
       },
     },
     {
-      field: "time",
-      valueFormatter: (params) => this.formatDateTime(params.value, this.timeOptions),
+      field: "decimal",
+      filter: "agNumberColumnFilter",
+      cellClassRules: {
+        "negative-value": (params: any) => params?.data.decimal < 0,
+      },
+      valueFormatter: (params: any) => {
+        // @ts-ignore
+        return parseFloat(params?.data.decimal).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      },
+      valueGetter: (params: any) => {
+        return parseFloat(params.data.decimal.toFixed(2));
+      },
     },
-    {
-      field: "nullData"
-    }
+    { field: "alphaNumeric", filter: "agTextColumnFilter" },
+
   ];
-  onBtnExport() {
-    this.gridApi.exportDataAsCsv();
+  data = rowData;
+  private formatToTime(
+    dateString: string,
+  ): string {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-IN", {hour:"numeric", minute: "2-digit", second: "2-digit", hour12: false});
+  }
+  private formatDate(
+    dateString: string,
+    includeSeconds: boolean = false,
+    use12HourFormat: boolean = false
+  ): string {
+    const options: any = {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: use12HourFormat ? "numeric" : "2-digit",
+      minute: "2-digit",
+      second: includeSeconds ? "2-digit" : undefined,
+      hour12: use12HourFormat,
+    };
+
+    const date = new Date(dateString);
+    return date.toLocaleString("en-IN", options);
   }
   onGridReady(params: GridReadyEvent) {
     this.gridApi = params.api;
   }
-  dateOptions: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  };
-  timeOptions: Intl.DateTimeFormatOptions = {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  };
-  private formatDateTime(
-    dateString: string,
-    options: Intl.DateTimeFormatOptions
-  ): string {
+  private parseDate(dateString: string): Date {
+    const dateParts = dateString.split("-").map(Number);
+    return new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+  }
+
+  private parseDateDDMMYY(dateString: string): Date {
+    const dateParts = dateString.split("/").map(Number);
+    return new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+  }
+  private formatDateDDMMYY(dateString: string): string {
     const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+    };
     return date.toLocaleString("en-IN", options);
   }
 }

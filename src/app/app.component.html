@@ -1,19 +1,16 @@
 <div class="content">
   <div style="margin: 10px 0;">
-    <button (click)="onBtnExport()">Download Excel export file</button>
+<!--    <button (click)="onBtnExport()">Download Excel export file</button>-->
   </div>
   <!-- The AG Grid component, with Dimensions, CSS Theme, Row Data, and Column Definition -->
   <ag-grid-angular
     style="height: 350px;"
     [class]="themeClass"
-    [rowData]="rowData"
+    [rowData]="data"
     [columnDefs]="colDefs"
     [suppressExcelExport]="true"
     (gridReady)="onGridReady($event)"
   >
   </ag-grid-angular>
-  <textarea
-    id="csvResult"
-    placeholder="Click the Show CSV export content button to view exported CSV here"
-  ></textarea>
+
 </div>
